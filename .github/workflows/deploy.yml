@@ -79,9 +79,10 @@ jobs:
           BUBBLEWRAP_KEY_PASSWORD: jamesflash
         run: |
           set +e
-          bubblewrap build --skipPwaValidation < /dev/null > build.log 2>&1
+          # 'yes |' answers the "regenerate project?" confirm (default yes); passwords come from env.
+          yes | bubblewrap build --skipPwaValidation > build.log 2>&1
           echo "::warning title=build-exit::exit=$?"
-          sed 's/\x1b\[[0-9;]*m//g' build.log | grep -vE '^[[:space:]]*$' | head -8 | while IFS= read -r l; do echo "::warning::LOG ${l}"; done
+          sed 's/\x1b\[[0-9;]*m//g' build.log | grep -vE '^[[:space:]]*$' | tail -7 | while IFS= read -r l; do echo "::warning::LOG ${l}"; done
           echo "::warning title=apk-list::$(find . -maxdepth 6 -name '*.apk' 2>/dev/null | tr '\n' ',')"
           exit 0
 
