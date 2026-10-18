@@ -82,7 +82,10 @@ jobs:
           # 'yes |' answers the "regenerate project?" confirm (default yes); passwords come from env.
           yes | bubblewrap build --skipPwaValidation > build.log 2>&1
           echo "::warning title=build-exit::exit=$?"
-          sed 's/\x1b\[[0-9;]*m//g' build.log | grep -vE '^[[:space:]]*$' | tail -7 | while IFS= read -r l; do echo "::warning::LOG ${l}"; done
+          sed 's/\x1b\[[0-9;]*m//g' build.log > clean.log
+          awk '/What went wrong/{f=1} f{print; if(++n>=7) exit}' clean.log | while IFS= read -r l; do echo "::warning::WWW ${l}"; done
+          grep -aE 'Could not compile|build file|startup failed|unexpected|Caused by:|requires|Unsupported|SDK location|gradle-wrapper' clean.log | head -4 | while IFS= read -r l; do echo "::warning::C ${l}"; done
+          echo "::warning title=gradle-ver::$(cat ./gradle/wrapper/gradle-wrapper.properties 2>/dev/null | grep distributionUrl || echo none)"
           echo "::warning title=apk-list::$(find . -maxdepth 6 -name '*.apk' 2>/dev/null | tr '\n' ',')"
           exit 0
 
