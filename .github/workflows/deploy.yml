@@ -63,6 +63,7 @@ jobs:
           mkdir -p "$HOME/.bubblewrap"
           printf '{\n  "jdkPath": "%s",\n  "androidSdkPath": "%s"\n}\n' "$JAVA_HOME" "$SDK" > "$HOME/.bubblewrap/config.json"
           cat "$HOME/.bubblewrap/config.json"
+          echo "::warning title=sdkenv::SDK=[$SDK] JAVA_HOME=[$JAVA_HOME] tools=$( [ -d "$SDK/tools" ] && echo y || echo n) cmdline=$( [ -d "$SDK/cmdline-tools" ] && echo y || echo n) bt361=$( [ -d "$SDK/build-tools/36.1.0" ] && echo y || echo n)"
 
       - name: Generate a signing keystore
         run: |
@@ -79,9 +80,8 @@ jobs:
         run: |
           set +e
           bubblewrap build --skipPwaValidation < /dev/null > build.log 2>&1
-          code=$?
-          echo "::warning title=build-exit::exit=$code"
-          grep -iE 'error|exception|fail|BUILD SUCCESSFUL|\.apk|sign|passwords' build.log | tail -6 | while IFS= read -r l; do echo "::warning::${l}"; done
+          echo "::warning title=build-exit::exit=$?"
+          sed 's/\x1b\[[0-9;]*m//g' build.log | grep -vE '^[[:space:]]*$' | head -8 | while IFS= read -r l; do echo "::warning::LOG ${l}"; done
           echo "::warning title=apk-list::$(find . -maxdepth 6 -name '*.apk' 2>/dev/null | tr '\n' ',')"
           exit 0
 
