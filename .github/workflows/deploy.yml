@@ -35,7 +35,6 @@ jobs:
   # ---------- 2) wrap the PWA as a signed Android APK (TWA) ----------
   apk:
     runs-on: ubuntu-latest
-    needs: pages
     steps:
       - uses: actions/checkout@v4
 
