@@ -50,10 +50,18 @@ jobs:
       - name: Install Bubblewrap
         run: npm i -g @bubblewrap/cli@1.22.0
 
-      - name: Point Bubblewrap at the runner's JDK + Android SDK (no downloads)
+      - name: Prepare Android SDK + Bubblewrap config
         run: |
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "SDK=$SDK"; ls "$SDK" || true
+          SDKMGR="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMGR" ] || SDKMGR="sdkmanager"
+          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "build-tools;36.1.0" "platforms;android-36" "platforms;android-35" >/dev/null 2>&1 || true
+          # Bubblewrap's validatePath() needs a tools/ or bin/ dir directly under the SDK root.
+          mkdir -p "$SDK/tools"
           mkdir -p "$HOME/.bubblewrap"
-          printf '{\n  "jdkPath": "%s",\n  "androidSdkPath": "%s"\n}\n' "$JAVA_HOME" "$ANDROID_HOME" > "$HOME/.bubblewrap/config.json"
+          printf '{\n  "jdkPath": "%s",\n  "androidSdkPath": "%s"\n}\n' "$JAVA_HOME" "$SDK" > "$HOME/.bubblewrap/config.json"
           cat "$HOME/.bubblewrap/config.json"
 
       - name: Generate a signing keystore
@@ -64,23 +72,21 @@ jobs:
             -storepass jamesflash -keypass jamesflash \
             -dname "CN=JAMES Flash, OU=Dev, O=James, L=Bangkok, C=TH"
 
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-
       - name: Build the TWA (from the committed twa-manifest.json)
         run: |
           set +e
-          printf 'jamesflash\njamesflash\n' | bubblewrap build --skipPwaValidation
-          echo "::warning title=build-exit::bubblewrap build exit=$?"
-          echo "::warning title=apk-list::$(find . -maxdepth 5 -name '*.apk' 2>/dev/null | tr '\n' ' ')"
+          printf 'jamesflash\njamesflash\n' | bubblewrap build --skipPwaValidation > build.log 2>&1
+          code=$?
+          echo "::warning title=build-exit::exit=$code"
+          grep -iE 'error|exception|fail|BUILD SUCCESSFUL|\.apk|sign' build.log | tail -6 | while IFS= read -r l; do echo "::warning::${l}"; done
+          echo "::warning title=apk-list::$(find . -maxdepth 6 -name '*.apk' 2>/dev/null | tr '\n' ',')"
           exit 0
 
       - name: Collect APK
         run: |
           mkdir -p out
-          cp -f app-release-signed.apk out/JAMES-Flash.apk 2>/dev/null || true
-          cp -f ./app/build/outputs/apk/release/*.apk out/ 2>/dev/null || true
-          find . -name '*.apk' -maxdepth 4 -exec cp -n {} out/ \; 2>/dev/null || true
+          find . -maxdepth 6 -name '*.apk' -exec cp -n {} out/ \; 2>/dev/null || true
+          [ -f app-release-signed.apk ] && cp -f app-release-signed.apk out/JAMES-Flash.apk || true
           ls -la out
 
       - uses: actions/upload-artifact@v4
@@ -90,7 +96,6 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish APK to a GitHub Release
-        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -101,4 +106,7 @@ jobs:
             gh release create v0.4.0 "${apks[@]}" \
               --title "JAMES Flash v0.4.0 (Android APK)" \
               --notes "ติดตั้งแล้วเปิด ต่อสาย FTDI ผ่าน USB-OTG เพื่อแฟลช K-line (WebUSB). เว็บ: https://pitak2540.github.io/james-flash-web/"
+            echo "::warning title=release::created v0.4.0 with ${#apks[@]} apk(s)"
+          else
+            echo "::warning title=release::no apk produced"
           fi
