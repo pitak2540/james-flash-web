@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self';">
+<title>JAMES Flash</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">J</span><div><b>JAMES Flash</b><small>Honda ECU K-line · Powered by James</small></div></div>
+  <nav class="tabs">
+    <button data-tab="ecu" class="active">ECU / Flash</button>
+    <button data-tab="live">Live Data / DTC</button>
+    <button data-tab="rom">ROM / EEPROM · Smart Key</button>
+    <button data-tab="map">Map Editor · ลายเส้น</button>
+    <button data-tab="hex">Hex</button>
+    <button data-tab="renesas">Renesas (SH/R8C)</button>
+    <button data-tab="license">License</button>
+  </nav>
+  <div class="conn" id="connBadge"><span class="dot"></span><span id="connText">ยังไม่เชื่อมต่อ</span><span id="planBadge" class="badge plan" title="สถานะ license">FREE</span></div>
+</header>
+
+<main>
+<!-- ===== ECU / FLASH ===== -->
+<section id="tab-ecu" class="tab active">
+  <div class="grid2">
+    <div class="card">
+      <h3>1. การเชื่อมต่อ (FTDI K-line)</h3>
+      <div class="row"><select id="portSel"></select><button id="btnRefresh" class="ghost">รีเฟรช</button></div>
+      <div class="row"><button id="btnConnect" class="primary">เชื่อมต่อ ECM</button><button id="btnDisconnect" class="ghost">ตัดการเชื่อมต่อ</button></div>
+      <dl class="kv"><dt>ECM ID</dt><dd id="ecmId">-</dd><dt>ยี่ห้อกล่อง</dt><dd id="ecmBrand">-</dd><dt>Flash count</dt><dd id="flashCount">-</dd><dt>โหมด</dt><dd id="recovery">-</dd><dt>แบตเตอรี่</dt><dd><span id="ecmBatt">-</span> <button id="btnBatt" class="ghost mini" title="อ่านแรงดันแบตใหม่">↻</button></dd><dt>ปลุกกล่องด้วย</dt><dd id="wakeMode">-</dd></dl>
+      <p class="muted small">โปรแกรมลองปลุกกล่องหลายแบบอัตโนมัติ (break 70/72 ms · zero burst · fast burst · fast init) และจำแบบที่ติดไว้ใช้ครั้งถัดไป · ถ้าสาย USB หลุด จะรอสายกลับมาและต่อ ECM ให้เอง</p>
+    </div>
+    <div class="card">
+      <h3>2. ไฟล์ ROM ที่จะเขียน</h3>
+      <div class="row"><button id="btnOpenBin" class="primary">เปิดไฟล์ .bin</button><span id="binName" class="muted">ยังไม่ได้เลือกไฟล์</span></div>
+      <dl class="kv"><dt>ขนาด</dt><dd id="binSize">-</dd><dt>ตระกูล ECU</dt><dd id="binFamily">-</dd><dt>Start offset</dt><dd><input id="startOff" value="auto" size="8"></dd><dt>Checksum offset</dt><dd><input id="csOff" value="auto" size="8"></dd><dt>Checksum</dt><dd id="csState">-</dd></dl>
+    </div>
+  </div>
+  <div class="card gate" id="gateCard">
+    <h3>3. ด่านตรวจก่อนแฟลช <span id="gateBadge" class="badge">ยังไม่ได้ตรวจ</span></h3>
+    <ul id="gateList" class="gate-list"><li class="muted">เชื่อมต่อ ECM และเปิดไฟล์ ROM แล้วโปรแกรมจะตรวจให้อัตโนมัติ</li></ul>
+    <div class="row small">
+      <button id="btnGate" class="ghost">ตรวจอีกครั้ง</button>
+      <label class="chk" id="overrideWrap" style="display:none"><input type="checkbox" id="gateOverride"> รับทราบคำเตือนด้านบน ดำเนินการต่อ</label>
+      <span class="sep"></span>
+      <label class="chk" title="ส่งคำสั่งขอความเร็วสูงให้กล่องหลังเข้าโหมดเขียน แล้วยืนยันด้วย keep-alive ก่อนใช้จริง · ใช้ได้เฉพาะ Keihin 128-byte (type 0)"><input type="checkbox" id="fastWrite"> เขียนเร็ว 62500 bps (ทดลอง · Keihin type 0)</label>
+    </div>
+  </div>
+  <div class="card danger">
+    <h3>4. เขียน ROM ลง ECU</h3>
+    <p class="muted">ก่อนเขียน: แบตเตอรี่ต้องเต็ม, กุญแจ ON, ห้ามถอดสายระหว่างเขียน หาก ECM ID ลงท้าย 0000 = Recovery mode · ถ้าสายหลุดกลางทาง โปรแกรมจะรอสายกลับมา 20 วินาทีและเขียนต่อจากบล็อกเดิม — <b>ห้ามปิดกุญแจ</b></p>
+    <div class="row"><label class="chk"><input type="checkbox" id="confirmFlash"> ฉันเข้าใจความเสี่ยงและไฟล์ตรงรุ่น ECU</label><button id="btnFlash" class="red" disabled>FLASH</button><button id="btnAbort" class="ghost">ยกเลิก</button><span id="flashBaud" class="badge" style="display:none"></span></div>
+    <div class="progress"><div id="flashBar"></div></div>
+    <div class="row small"><span id="flashPct">0%</span><span id="flashSpeed"></span><span id="flashEta"></span><span id="flashRecover" class="warn"></span></div>
+  </div>
+  <div class="card"><h3>สถานะ / Log</h3><div id="log" class="log"></div></div>
+</section>
+
+<!-- ===== LIVE DATA / DTC ===== -->
+<section id="tab-live" class="tab">
+  <div class="card">
+    <div class="row">
+      <h3 style="margin:0">บัสที่ใช้</h3>
+      <label class="chk"><input type="radio" name="bus" value="kline" checked> K-line (จากหน้า ECU / Flash)</label>
+      <label class="chk"><input type="radio" name="bus" value="can"> CAN <span class="lock" data-feature="can"></span></label>
+      <span class="sep"></span><span id="busState" class="muted small"></span>
+    </div>
+    <div id="canCard" class="row small" style="display:none">
+      <label>อุปกรณ์</label><select id="canKind"><option value="elm327">ELM327 (USB / Bluetooth COM)</option><option value="j2534">J2534 (Scanmatik SM2 Pro / OpenPort 2.0)</option></select>
+      <label>พอร์ต</label><select id="canPort"></select><button id="btnCanRefresh" class="ghost mini">↻</button>
+      <label>โปรไฟล์</label><select id="canProfile"></select>
+      <button id="btnCanConnect" class="primary">เชื่อมต่อ CAN</button><button id="btnCanDisconnect" class="ghost">ตัด</button>
+      <button id="btnCanSeed" class="ghost" title="ขอ seed จาก ECU (service 27) เพื่อศึกษา — ไม่ส่ง key">ขอ seed</button>
+      <span id="canInfo" class="muted"></span>
+    </div>
+    <dl class="kv" id="canEcu" style="display:none"></dl>
+    <div id="canFlashCard" class="canflash" style="display:none">
+      <h3>เขียน ROM ผ่าน CAN (UDS · SM2 Pro / J2534) <span id="cfBadge" class="badge">ยังไม่ได้ตรวจ</span></h3>
+      <div class="row small">
+        <label>Profile</label><select id="cfProfile"></select><button id="btnCfProfileEdit" class="ghost mini" title="ดู/แก้ profile เป็น JSON">แก้ไข</button>
+        <button id="btnCfOpen" class="ghost">เปิดไฟล์ .bin</button><span id="cfFile" class="muted">ยังไม่ได้เลือกไฟล์</span>
+        <span class="sep"></span>
+        <button id="btnCfCheck" class="ghost">ตรวจก่อนเขียน</button>
+      </div>
+      <ul id="cfGate" class="gate-list"><li class="muted">เลือก profile และไฟล์ แล้วกด “ตรวจก่อนเขียน”</li></ul>
+      <div class="row small">
+        <label class="chk"><input type="checkbox" id="cfDry" checked> Dry run — ทำทุกขั้นถึงก่อน erase แล้วหยุด (ไม่แตะหน่วยความจำ)</label>
+        <label class="chk" id="cfOverrideWrap" style="display:none"><input type="checkbox" id="cfOverride"> รับทราบคำเตือน ดำเนินการต่อ</label>
+        <label class="chk"><input type="checkbox" id="cfConfirm"> ฉันเข้าใจว่าการเขียนผ่าน CAN ยังไม่เคยทดสอบกับกล่องจริง และทำกับกล่องสำรอง</label>
+        <span class="sep"></span>
+        <button id="btnCfFlash" class="red" disabled>FLASH (CAN)</button><button id="btnCfAbort" class="ghost">ยกเลิก</button>
+      </div>
+      <div class="progress"><div id="cfBar"></div></div>
+      <div class="row small"><span id="cfPhase"></span><span id="cfPct"></span><span id="cfSpeed"></span><span id="cfEta"></span></div>
+      <p class="muted small" id="cfNode32"></p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <h3 style="margin:0">Live Data <span class="muted small" id="liveTable"></span></h3>
+      <span class="sep"></span>
+      <span id="liveRate" class="muted small"></span>
+      <button id="btnLiveStart" class="primary">▶ เริ่มอ่านค่าสด</button><button id="btnLiveStop" class="ghost" disabled>■ หยุด</button>
+    </div>
+    <p class="muted small">ใช้การเชื่อมต่อจากหน้า ECU / Flash (กุญแจ ON หรือเครื่องติดก็ได้) · อ่านตาราง Keihin 0x10–0x17 + O2 + สถานะสวิตช์ · ค่าที่ไม่มีในกล่องรุ่นนั้นจะขึ้น “—”</p>
+    <div id="gauges" class="gauges"></div>
+    <div id="liveFlags" class="row small flags"></div>
+  </div>
+  <div class="card">
+    <div class="row"><h3 style="margin:0">รหัสความผิดปกติ (DTC)</h3><span class="sep"></span><button id="btnDtcRead" class="primary">อ่านรหัส</button><button id="btnDtcClear" class="red">ล้างรหัส</button></div>
+    <div class="grid2">
+      <div><div class="muted small">รหัสปัจจุบัน (Current)</div><ul id="dtcCurrent" class="dtc"><li class="muted">—</li></ul></div>
+      <div><div class="muted small">รหัสที่เคยเกิด (Past / Stored)</div><ul id="dtcPast" class="dtc"><li class="muted">—</li></ul></div>
+    </div>
+    <div id="dtcSummary" class="muted small"></div>
+    <p class="muted small">คำอธิบายรหัสเพิ่ม/แก้ได้ที่ <code>%APPDATA%\james-flash\dtc-db.json</code> รูปแบบ <code>{"29-1":"ข้อความ"}</code></p>
+  </div>
+  <div class="card"><h3>สถานะ / Log</h3><div id="log3" class="log"></div></div>
+</section>
+
+<!-- ===== ROM / EEPROM / SMART KEY ===== -->
+<section id="tab-rom" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h3>1. Security Access (ปลดล็อก ECU)</h3>
+      <div class="row"><label>พอร์ต</label><select id="secPort"></select><button id="btnSecRefresh" class="ghost">รีเฟรช</button></div>
+      <div class="row"><label>รหัสผ่าน 14 ไบต์</label><input id="secPw" size="44" list="pwList" placeholder="00 11 22 33 44 55 66 77 88 99 AA BB CC DD" autocomplete="off"><datalist id="pwList"></datalist></div>
+      <div class="row small"><select id="pwSaved"><option value="">— รหัสที่บันทึกไว้ —</option></select><input id="pwLabel" size="16" placeholder="ชื่อรุ่น เช่น PCX160 K1Z"><button id="btnPwSave" class="ghost">บันทึกรหัส</button><button id="btnPwDel" class="ghost">ลบ</button></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="secKeyless"> รถ Smart Key (keyless) — ใช้ปุ่มบิดแทนกุญแจ</label></div>
+      <div class="steps"><span id="s1">1 ปิด OFF</span><span id="s2">2 เปิด ON</span><span id="s3">3 ปลดล็อก</span></div>
+      <div class="row"><button id="btnSecConnect" class="primary">เชื่อมต่อ &amp; ปลดล็อก</button><button id="btnSecDisconnect" class="ghost">ตัดการเชื่อมต่อ</button><span id="secState" class="badge">idle</span><span id="secEcm" class="muted"></span></div>
+      <p class="muted small">ขั้นตอน: กดเชื่อมต่อ → ปิดกุญแจ/บิด OFF → เมื่อโปรแกรมบอก ค่อยเปิด ON (ไม่ต้องสตาร์ท) → โปรแกรมส่งรหัสทันทีที่ ECU ตื่น หลังปลดล็อกแล้วทำได้หลายงานต่อเนื่องโดยไม่ต้องปิด/เปิดใหม่</p>
+    </div>
+    <div class="card">
+      <h3>2. อ่าน ROM</h3>
+      <div class="row"><label>ขนาด</label><select id="romSize"></select><label>ตรวจซ้ำ</label><select id="romVerify"><option value="sample">สุ่ม 1/16</option><option value="full">ทั้งหมด (ช้า ×2)</option><option value="none">ไม่ตรวจ</option></select></div>
+      <div class="row small"><span id="romNote" class="muted"></span></div>
+      <div class="row"><label>ไฟล์อ้างอิง (STD) — ใช้เติมส่วนที่กล่องไม่ให้อ่าน</label><button id="btnRefOpen" class="ghost">เลือกไฟล์</button><span id="refName" class="muted">ไม่ใช้</span><button id="btnRefClear" class="ghost" style="display:none">×</button></div>
+      <div class="row"><button id="btnRomRead" class="primary" disabled>เริ่มอ่าน ROM</button><button id="btnSecAbort" class="ghost">ยกเลิก</button><button id="btnRomSave" class="ghost" disabled>บันทึก .bin</button><button id="btnRomToMap" class="ghost" disabled>เปิดใน Map Editor</button><button id="btnRomToFlash" class="ghost" disabled>ส่งไปหน้า Flash</button></div>
+      <div class="progress"><div id="romBar"></div></div>
+      <div class="row small"><span id="romPct"></span><span id="romSpeed"></span><span id="romEta"></span></div>
+      <div id="romResult" class="muted small"></div>
+    </div>
+  </div>
+  <div class="card keycard">
+    <h3>3. Smart Key / Immobilizer — EEPROM 512 ไบต์</h3>
+    <p class="muted small">ข้อมูลจับคู่ Smart Key/กุญแจและค่าปรับตั้งของกล่องอยู่ที่นี่ ทุกการเขียน/Format โปรแกรมจะ <b>อ่านและสำรองของเดิมอัตโนมัติ</b> ไว้ที่ Documents\JAMES-Flash\backups ก่อนเสมอ แล้วอ่านกลับตรวจสอบหลังทำ</p>
+    <div class="row">
+      <button id="btnEepRead" class="primary" disabled>อ่าน + สำรอง EEPROM</button>
+      <button id="btnEepOpen" class="ghost">เปิดไฟล์ EEPROM…</button><span id="eepFileName" class="muted">ยังไม่ได้เลือกไฟล์</span>
+      <span class="sep"></span>
+      <button id="btnEepWrite" class="red" disabled>เขียนไฟล์ลง ECU (โคลน)</button>
+      <button id="btnEepFormat00" class="ghost" disabled>Format 0x00</button><button id="btnEepFormatFF" class="ghost" disabled>Format 0xFF</button>
+      <button id="btnEepSave" class="ghost" disabled>บันทึกที่อ่านได้</button><button id="btnBackups" class="ghost">เปิดโฟลเดอร์สำรอง</button>
+    </div>
+    <div class="progress"><div id="eepBar"></div></div>
+    <div class="row small"><span id="eepPct"></span><span id="eepSummary"></span></div>
+    <div class="eepgrid">
+      <div><div class="muted small">ใน ECU (อ่านล่าสุด)</div><pre id="eepHexEcu" class="hex small-hex">—</pre></div>
+      <div><div class="muted small">ไฟล์ที่เลือก <span id="eepDiffCount"></span></div><pre id="eepHexFile" class="hex small-hex">—</pre></div>
+    </div>
+  </div>
+  <div class="card keycard">
+    <h3>4. ถอดรหัส / Renew Smart Key <span id="skProfBadge" class="badge">—</span></h3>
+    <p class="muted small">ถอดรหัส Key ID จากไฟล์ (EEPROM แยก หรือ <b>ROM เครื่องยนต์</b> ก็ได้) · โคลนรหัสจากกล่องอื่น · ทำ virgin ให้กล่องเรียนรู้คีย์ใหม่ · ทุกอย่างทำบนไฟล์แล้วบันทึกออกเพื่อเอาไปเขียนที่หน้า ECU/Flash — ต้องมี <b>profile</b> ที่ระบุตำแหน่งรหัสของรุ่นนั้นก่อน</p>
+    <div class="row small">
+      <label>Profile รุ่น</label><select id="skProfile"></select><button id="btnSkProfEdit" class="ghost mini">แก้ไข</button><button id="btnSkProfDel" class="ghost mini">ลบ</button>
+      <span class="sep"></span>
+      <button id="btnSkOpen" class="ghost">เปิดไฟล์ (ROM/EEPROM)</button><span id="skFileName" class="muted">ยังไม่ได้เลือกไฟล์</span>
+      <button id="btnSkDecode" class="primary" disabled>ถอดรหัส</button>
+    </div>
+    <dl class="kv" id="skDecoded" style="display:none"></dl>
+    <div class="row small" style="margin-top:8px">
+      <b>หาตำแหน่งรหัส (ออฟเซ็ต):</b>
+      <button id="btnSkAnalyze" class="ghost">วิเคราะห์หลายไฟล์…</button>
+      <span class="muted">เลือกดัมป์ ≥2 ไฟล์จากรถคันเดียวกัน/รุ่น-แมพเดียวกัน ที่คีย์ต่างกัน</span>
+    </div>
+    <div id="skAnalysis" class="muted small"></div>
+    <div class="row small" style="margin-top:8px">
+      <b>Renew:</b>
+      <button id="btnSkDonor" class="ghost">เลือกไฟล์ต้นทาง (โคลนรหัส)</button><span id="skDonorName" class="muted">—</span>
+      <button id="btnSkBuildClone" class="ghost" disabled>สร้างไฟล์ที่โคลนรหัสแล้ว</button>
+      <span class="sep"></span>
+      <button id="btnSkBuildVirgin" class="red" disabled>สร้างไฟล์ virgin (ให้เรียนรู้ใหม่)</button>
+    </div>
+    <div id="skRenewMsg" class="muted small"></div>
+  </div>
+  <div class="card"><h3>สถานะ / Log</h3><div id="log2" class="log"></div></div>
+</section>
+
+<!-- ===== MAP EDITOR ===== -->
+<section id="tab-map" class="tab">
+  <div class="mapwrap">
+    <aside class="side card">
+      <h3>ชุดตาราง (รุ่น / ไฟล์ XDF)</h3>
+      <div class="row"><button id="btnMapOpen" class="primary">เปิด .bin</button><button id="btnMapCompare" class="ghost">เทียบไฟล์</button></div>
+      <div class="muted" id="mapFile">ยังไม่มีไฟล์</div>
+      <div class="row"><select id="setSel" style="flex:1"></select></div>
+      <div class="row small"><button id="btnXdf" class="ghost">นำเข้า XDF <span class="lock" data-feature="maplib-import"></span></button><button id="btnSetImport" class="ghost">นำเข้า JSON</button><button id="btnSetExport" class="ghost">ส่งออก</button><button id="btnSetNew" class="ghost">+ ชุดใหม่</button><button id="btnSetDel" class="ghost">ลบชุด</button></div>
+      <div class="row small"><input id="setName" placeholder="ชื่อชุด / รุ่น" style="flex:1"><button id="btnSetBind" class="ghost" title="ผูกชุดนี้กับ ECM ID ของกล่องที่เชื่อมต่ออยู่">ผูก ECM ID</button></div>
+      <div class="muted small" id="setInfo"></div>
+      <div class="row small"><input id="defFilter" placeholder="ค้นหาตาราง…" style="flex:1"></div>
+      <select id="defSel" size="10"></select>
+      <div class="row"><button id="btnDefNew" class="ghost">+ ตาราง</button><button id="btnDefDel" class="ghost">ลบ</button><button id="btnDefSave" class="ghost">บันทึก</button></div>
+      <details open><summary>คุณสมบัติตาราง</summary>
+        <div class="form">
+          <label>ชื่อ<input id="dName"></label>
+          <label>Offset (hex)<input id="dOff" value="0"></label>
+          <label>แถว (rows)<input id="dRows" type="number" value="1" min="1"></label>
+          <label>คอลัมน์ (cols)<input id="dCols" type="number" value="16" min="1"></label>
+          <label>ขนาดข้อมูล<select id="dSize"><option value="8">8-bit</option><option value="16le">16-bit LE</option><option value="16be">16-bit BE</option></select></label>
+          <label>Signed<select id="dSigned"><option value="0">ไม่</option><option value="1">ใช่</option></select></label>
+          <label>สูตร (X = ค่าดิบ) เช่น X*0.5-10<input id="dEq" value="X"></label>
+          <label>ทศนิยม<input id="dDec" type="number" min="0" max="6" value="2"></label>
+          <label>หน่วย<input id="dUnit" placeholder="เช่น ms, °, %"></label>
+          <label>หมวด<input id="dCat" placeholder="Fuel / Ignition / …"></label>
+          <label>แกน X (คั่นด้วย ,)<input id="dXAxis" placeholder="เช่น 1000,1500,2000..."></label>
+          <label>แกน Y (คั่นด้วย ,)<input id="dYAxis" placeholder="เช่น 10,20,30..."></label>
+          <label>ค่าเริ่มจากล่างขึ้นบน<select id="dFlipY"><option value="0">ไม่</option><option value="1">ใช่</option></select></label>
+          <button id="btnDefApply" class="primary">ใช้ค่า</button>
+        </div>
+      </details>
+    </aside>
+    <div class="mapmain">
+      <div class="toolbar card">
+        <span>แก้ไขที่เลือก:</span>
+        <button data-op="+1">+1</button><button data-op="-1">−1</button><button data-op="+5%">+5%</button><button data-op="-5%">−5%</button>
+        <input id="opVal" placeholder="ค่า" size="6"><button data-op="set">ตั้งค่า</button><button data-op="smooth">เกลี่ย</button><button data-op="interp">Interpolate</button>
+        <span class="sep"></span>
+        <button id="btnUndo" class="ghost">↶ Undo</button><button id="btnMapSave" class="primary">บันทึก .bin (แก้ checksum)</button><button id="btnMapToFlash" class="red">ส่งไปหน้า Flash</button>
+      </div>
+      <div class="split">
+        <div class="card gridcard"><div id="gridHost" class="gridhost"></div></div>
+        <div class="card chartcard">
+          <div class="charttabs"><button data-view="2d" class="active">กราฟลายเส้น 2D</button><button data-view="3d">พื้นผิว 3D</button><button data-view="diff">ส่วนต่าง</button></div>
+          <canvas id="chart" width="700" height="460"></canvas>
+          <div class="muted small" id="chartHint">คลิก/ลากบนตารางเพื่อเลือกเซลล์ · ลาก 3D เพื่อหมุน · ล้อเมาส์เพื่อซูม</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SMART KEY / EEPROM ===== -->
+
+<!-- ===== HEX ===== -->
+<section id="tab-hex" class="tab">
+  <div class="card"><div class="row"><label>ไปที่ offset (hex)</label><input id="hexGoto" size="8"><button id="btnHexGo" class="ghost">ไป</button><span class="muted" id="hexInfo"></span></div><pre id="hexView" class="hex"></pre></div>
+</section>
+<!-- ===== RENESAS (SH/R8C) ===== -->
+<section id="tab-renesas" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h3>1. เชื่อมต่อ (Renesas boot mode)</h3>
+      <div class="row"><label>พอร์ต</label><select id="rnPort"></select><button id="rnRefresh" class="ghost">รีเฟรช</button></div>
+      <div class="row"><label>ตระกูล</label><select id="rnFamily"><option value="r8c">R8C</option><option value="m16c">M16C</option><option value="m32c">M32C</option><option value="sh7052">SH7052 (ต้องมี kernel)</option></select>
+        <label>baud</label><select id="rnBaud"><option>9600</option><option>19200</option><option>38400</option><option selected>57600</option><option>115200</option></select></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="rnHalf" checked> สายเดี่ยว K-line (TX echo)</label>
+        <label class="chk"><input type="checkbox" id="rnArm"> ARM (เปิดลบ/เขียน — ติ๊กก่อนเชื่อมต่อ)</label></div>
+      <div class="row"><button id="rnConnect" class="primary">เชื่อมต่อ</button><button id="rnDisconnect" class="ghost">ตัด</button><span id="rnState" class="badge">idle</span></div>
+      <div class="row"><button id="rnIdentify" class="ghost">Identify / ปลดล็อก</button></div>
+      <dl class="kv"><dt>Version</dt><dd id="rnVer">-</dd><dt>Default key</dt><dd id="rnKey">-</dd><dt>Unlock</dt><dd id="rnUnlock">-</dd></dl>
+    </div>
+    <div class="card">
+      <h3>2. อ่าน ROM</h3>
+      <div class="row"><label>Start (hex)</label><input id="rnStart" value="0" size="8"><label>ขนาด (hex)</label><input id="rnLen" value="8000" size="8"></div>
+      <div class="row"><button id="rnRead" class="primary">เริ่มอ่าน</button><button id="rnSave" class="ghost" disabled>บันทึก .bin</button></div>
+      <div class="progress"><div id="rnBar"></div></div>
+      <div class="row small"><span id="rnPct"></span></div>
+    </div>
+  </div>
+  <div class="card danger">
+    <h3>3. ลบ / เขียน (อันตราย)</h3>
+    <p class="muted">R8C/M16C คุย boot ROM โรงงานตรง ๆ · ไบต์คำสั่งอิง datasheet Renesas แต่ <b>ยังไม่ทดสอบกับกล่องจริง</b> — ยืนยัน address/timing ต่อรุ่นก่อน การลบ/เขียนผิดทำให้กล่องพัง ต้องติ๊ก ARM ก่อนเชื่อมต่อ</p>
+    <div class="row"><button id="rnErase" class="red">Erase all</button></div>
+  </div>
+  <div class="card"><h3>สถานะ / Log</h3><div id="rnStatus" class="muted small"></div><div id="rnLog" class="log"></div></div>
+</section>
+<!-- ===== LICENSE ===== -->
+<section id="tab-license" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h3>เครื่องนี้</h3>
+      <dl class="kv"><dt>HWID</dt><dd><span id="licHwid">-</span> <button id="btnHwidCopy" class="ghost mini">คัดลอก</button></dd><dt>สถานะ</dt><dd id="licState">-</dd><dt>ชนิด license</dt><dd id="licPlan">-</dd><dt>ออกให้</dt><dd id="licName">-</dd><dt>หมดอายุ</dt><dd id="licExp">-</dd></dl>
+      <p class="muted small">ส่ง HWID ให้ผู้ขายเพื่อออกไฟล์ license (.jflic) ที่ผูกกับเครื่องนี้ แล้วเปิดไฟล์หรือวางข้อความด้านล่าง</p>
+      <div class="row"><button id="btnLicFile" class="primary">เปิดไฟล์ license…</button><button id="btnLicRemove" class="ghost">ลบ license</button></div>
+      <div class="row"><textarea id="licText" rows="3" placeholder="วางข้อความ JFLIC1.… ที่นี่" style="flex:1"></textarea><button id="btnLicPaste" class="ghost">ติดตั้ง</button></div>
+      <div id="licMsg" class="small"></div>
+    </div>
+    <div class="card">
+      <h3>สิทธิ์การใช้งาน</h3>
+      <table class="plans" id="planTable"></table>
+    </div>
+  </div>
+</section>
+</main>
+<dialog id="askDlg"><form method="dialog" class="askform"><p id="askMsg"></p><input id="askInput" autocomplete="off" spellcheck="false"><div class="row"><button value="ok" class="red">ยืนยัน</button><button value="cancel" class="ghost">ยกเลิก</button></div></form></dialog>
+<dialog id="keyDlg"><form method="dialog" class="askform"><p id="keyMsg"></p><input id="keyInput" autocomplete="off" spellcheck="false" placeholder="key เป็น hex เช่น 1A2B"><div class="row"><button value="ok" class="red">ส่ง key</button><button value="cancel" class="ghost">ยกเลิก</button></div></form></dialog>
+<dialog id="profDlg"><form method="dialog" class="askform wide"><p>แก้ไข profile (JSON) — บันทึกเป็น profile ของผู้ใช้ (ของในตัวจะถูกคัดลอก)</p><textarea id="profText" rows="22" spellcheck="false"></textarea><div class="row"><button value="ok" class="primary">บันทึก</button><button value="del" class="ghost">ลบ profile นี้</button><button value="cancel" class="ghost">ปิด</button></div></form></dialog>
+<footer class="status"><span id="statusText">พร้อม</span></footer>
+<script src="mathexpr.js"></script>
+<script src="charts.js"></script>
+<script src="dist/james-web.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
