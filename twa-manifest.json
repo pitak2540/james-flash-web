@@ -30,6 +30,6 @@
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://pitak2540.github.io/james-flash-web/",
-  "minSdkVersion": 21,
+  "minSdkVersion": 24,
   "signingKey": { "path": "./android.keystore", "alias": "james" }
 }
