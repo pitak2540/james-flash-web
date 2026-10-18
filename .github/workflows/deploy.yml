@@ -64,16 +64,16 @@ jobs:
             -storepass jamesflash -keypass jamesflash \
             -dname "CN=JAMES Flash, OU=Dev, O=James, L=Bangkok, C=TH"
 
-      - name: Build the TWA
-        env:
-          BUBBLEWRAP_KEYSTORE_PASSWORD: jamesflash
-          BUBBLEWRAP_KEY_PASSWORD: jamesflash
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Build the TWA (from the committed twa-manifest.json)
         run: |
-          # Scaffold the Android project from the committed twa-manifest.json, then build.
-          yes | bubblewrap init --manifest "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/app/manifest.webmanifest" --directory . || true
-          printf 'jamesflash\njamesflash\n' | bubblewrap build --skipPwaValidation || \
-            printf 'jamesflash\njamesflash\n' | bubblewrap build
-          ls -la *.apk || true
+          set +e
+          printf 'jamesflash\njamesflash\n' | bubblewrap build --skipPwaValidation
+          echo "::warning title=build-exit::bubblewrap build exit=$?"
+          echo "::warning title=apk-list::$(find . -maxdepth 5 -name '*.apk' 2>/dev/null | tr '\n' ' ')"
+          exit 0
 
       - name: Collect APK
         run: |
