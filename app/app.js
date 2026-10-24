@@ -280,6 +280,36 @@ if ($('#btnRomLibRefresh')) $('#btnRomLibRefresh').onclick = loadRomLib;
 if (james.romlib && james.romlib.import && $('#btnRomLibImport')) { $('#btnRomLibImport').style.display = ''; $('#btnRomLibImport').onclick = async () => { const r = await james.romlib.import(); if (r) { romLib = r; renderRomLib(); } }; }
 loadRomLib();
 
+// ---- Tuning recipes (จูนด่วน): learn a tune by diffing stock↔tuned, re-apply to a stock ROM ----
+const tuneS = { stock: null, tuned: null, applyStock: null, list: [] };
+function tuneBtns() { if ($('#btnTuneMake')) $('#btnTuneMake').disabled = !(tuneS.stock && tuneS.tuned); if ($('#btnTuneApply')) $('#btnTuneApply').disabled = !(tuneS.applyStock && $('#tuneSel') && $('#tuneSel').value); }
+async function loadTunes() {
+  if (!james.tuning || !$('#tuneSel')) return;
+  tuneS.list = await james.tuning.list();
+  $('#tuneSel').innerHTML = tuneS.list.length ? tuneS.list.map((r) => `<option value="${r.id}">${r.name}${r.code ? ' · ' + r.code : ''} (${r.regions} โซน/${r.changedBytes}B)</option>`).join('') : '<option value="">— ยังไม่มีสูตร —</option>';
+  $('#tuneCount').textContent = tuneS.list.length ? tuneS.list.length + ' สูตร' : '—';
+  tuneBtns();
+}
+if ($('#btnTuneStock')) $('#btnTuneStock').onclick = async () => { const f = await james.openBin(); if (f) { tuneS.stock = f.bytes; $('#tuneStockName').textContent = `${f.name} (${f.bytes.length}B)`; tuneBtns(); } };
+if ($('#btnTuneTuned')) $('#btnTuneTuned').onclick = async () => { const f = await james.openBin(); if (f) { tuneS.tuned = f.bytes; $('#tuneTunedName').textContent = `${f.name} (${f.bytes.length}B)`; tuneBtns(); } };
+if ($('#btnTuneMake')) $('#btnTuneMake').onclick = async () => {
+  try { const r = await james.tuning.make(tuneS.stock, tuneS.tuned, { name: $('#tuneName').value.trim() || 'สูตรใหม่' }); $('#tuneMakeMsg').innerHTML = `✔ สร้างสูตร "${r.name}" — ${r.regions} โซน / ${r.changedBytes} ไบต์`; log('สร้างสูตรจูน ' + r.name, 'ok'); await loadTunes(); }
+  catch (e) { $('#tuneMakeMsg').textContent = '✘ ' + e.message; log(e.message, 'err'); }
+};
+if ($('#tuneSel')) $('#tuneSel').onchange = tuneBtns;
+if ($('#btnTuneApplyStock')) $('#btnTuneApplyStock').onclick = async () => { const f = await james.openBin(); if (f) { tuneS.applyStock = f; $('#tuneApplyName').textContent = `${f.name} (${f.bytes.length}B)`; tuneBtns(); } };
+if ($('#btnTuneApply')) $('#btnTuneApply').onclick = async () => {
+  const id = $('#tuneSel').value; if (!id || !tuneS.applyStock) return;
+  try {
+    const res = await james.tuning.apply(id, tuneS.applyStock.bytes);
+    if (res.mismatches && res.mismatches.length && !confirm(`มี ${res.mismatches.length} โซนที่ไบต์สต็อกไม่ตรง (อาจไม่ใช่สต็อกรุ่นนี้) — จะแปะเฉพาะโซนที่ตรง ${res.applied}/${res.total} ดำเนินต่อไหม?`)) { $('#tuneApplyMsg').textContent = 'ยกเลิก'; return; }
+    await setBin(new Uint8Array(res.bytes), 'จูน: ' + tuneS.applyStock.name); $$('.tabs button')[0].click();
+    $('#tuneApplyMsg').innerHTML = `✔ แปะสูตรแล้ว (${res.applied}/${res.total} โซน${res.checksumChanged ? ' · แก้ checksum ให้แล้ว' : ''}) → ส่งไปหน้า Flash`; log('แปะสูตรจูนแล้ว', 'ok');
+  } catch (e) { $('#tuneApplyMsg').textContent = '✘ ' + e.message; log(e.message, 'err'); }
+};
+if ($('#btnTuneDel')) $('#btnTuneDel').onclick = async () => { const id = $('#tuneSel').value; if (!id) return; if (!confirm('ลบสูตรนี้?')) return; await james.tuning.delete(id); await loadTunes(); };
+loadTunes();
+
 // saved passwords
 async function loadPw(list) {
   list = list || (await james.pw.list());

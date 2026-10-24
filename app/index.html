@@ -210,6 +210,14 @@
     <div class="row small"><input id="romLibSearch" size="26" placeholder="ค้นหา: รุ่น / รหัส / โน้ตจูน"><button id="btnRomLibImport" class="ghost" style="display:none">นำเข้าไฟล์…</button><button id="btnRomLibRefresh" class="ghost">รีเฟรช</button></div>
     <div id="romLibList" class="romlib"></div>
   </div>
+  <div class="card">
+    <h3>6. จูนด่วน — สูตรจูน (Tuning Recipe) <span id="tuneCount" class="badge">—</span></h3>
+    <p class="muted small">สร้าง "สูตรจูน" จากการเทียบไฟล์ <b>สต็อก ↔ จูน</b> ของรุ่นเดียวกัน แล้วเอาสูตรไปแปะกับ ROM สต็อกรุ่นเดียวกันได้ทันที (แก้ checksum ให้อัตโนมัติ) · สูตรเก็บในเครื่อง</p>
+    <div class="row small"><b>สร้างสูตร:</b><button id="btnTuneStock" class="ghost">ไฟล์สต็อก…</button><span id="tuneStockName" class="muted">—</span><button id="btnTuneTuned" class="ghost">ไฟล์จูน…</button><span id="tuneTunedName" class="muted">—</span><input id="tuneName" size="16" placeholder="ชื่อสูตร เช่น ปลดมัด K26"><button id="btnTuneMake" class="primary" disabled>สร้าง+บันทึก</button></div>
+    <div id="tuneMakeMsg" class="muted small"></div>
+    <div class="row small" style="margin-top:6px"><b>ใช้สูตร:</b><select id="tuneSel"></select><button id="btnTuneApplyStock" class="ghost">ไฟล์สต็อก…</button><span id="tuneApplyName" class="muted">—</span><button id="btnTuneApply" class="primary" disabled>แปะสูตร → Flash</button><button id="btnTuneDel" class="ghost mini">ลบสูตร</button></div>
+    <div id="tuneApplyMsg" class="muted small"></div>
+  </div>
   <div class="card"><h3>สถานะ / Log</h3><div id="log2" class="log"></div></div>
 </section>
 
