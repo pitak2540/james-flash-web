@@ -131,6 +131,7 @@ $('#startOff').onchange = $('#csOff').onchange = () => runGate(false);
 // ---------- bin ----------
 async function setBin(bytes, name) {
   state.bin = bytes; state.binName = name;
+  try { if (typeof M !== 'undefined' && !M.bytes) loadMap(new Uint8Array(bytes), name); } catch {}   // share the ROM with the Map Editor
   const info = await james.analyzeBin(bytes); state.binInfo = info;
   $('#binName').textContent = name; $('#binSize').textContent = `${bytes.length} ไบต์ (0x${hex(bytes.length, 5)})`;
   $('#binFamily').textContent = `${info.family} (type ${info.ecuType})`; $('#startOff').value = info.startOffset; $('#csOff').value = info.checksumOffset;
@@ -342,9 +343,12 @@ $('#btnSetNew').onclick = () => { M.lib.sets.push({ id: String(Date.now()), name
 $('#btnSetDel').onclick = () => { const s = curSet(); if (!s || M.lib.sets.length <= 1 || !confirm(`ลบชุด "${s.name}" (${s.tables.length} ตาราง)?`)) return; M.lib.sets.splice(M.setIdx, 1); M.setIdx = Math.max(0, M.setIdx - 1); M.cur = -1; fillSetList(); fillDefList(); renderMap(); saveLib(); };
 $('#btnSetBind').onclick = () => { const s = curSet(); const id = state.ecm && state.ecm.ecmId && state.ecm.ecmId !== '-' ? state.ecm.ecmId.toUpperCase() : prompt('ใส่ ECM ID ที่จะผูกกับชุดนี้ (เช่น 38770A1122)'); if (!s || !id) return; if (!s.ecmIds.includes(id)) s.ecmIds.push(id); if (M.bytes && !s.romSize) s.romSize = M.bytes.length; fillSetList(); saveLib(); log(`ผูก ECM ID ${id} กับชุด "${s.name}"`, 'ok'); };
 $('#btnXdf').onclick = async () => {
-  const r = await james.maplib.importXdf(); if (!r || r.cancelled) return; if (r.ok === false) { log(r.error, 'err'); return; }
-  const set = r.set; if (M.bytes && !set.romSize) set.romSize = M.bytes.length;
-  M.lib.sets.push(set); M.setIdx = M.lib.sets.length - 1; M.cur = set.tables.length ? 0 : -1; M.sel.clear(); fillSetList(); fillDefList(); renderMap(); saveLib();
+  const r = await james.maplib.importXdf(); if (!r || r.cancelled) return;
+  if (r.ok === false) { log('นำเข้า XDF ไม่สำเร็จ: ' + r.error, 'err'); alert(r.error); return; }
+  const set = r.set;
+  if (!set.tables.length) { const w = r.warnings && r.warnings.length ? r.warnings[0] : 'ไม่พบตารางที่นำเข้าได้'; log('นำเข้า XDF "' + set.name + '": ' + w, 'err'); alert(w); return; }
+  if (M.bytes && !set.romSize) set.romSize = M.bytes.length;
+  M.lib.sets.push(set); M.setIdx = M.lib.sets.length - 1; M.cur = 0; M.sel.clear(); fillSetList(); fillDefList(); renderMap(); saveLib();
   log(`นำเข้า XDF "${set.name}": ${r.counts.tables} ตาราง${r.warnings.length ? ` · คำเตือน ${r.warnings.length}: ${r.warnings.slice(0, 3).join(' | ')}` : ''}`, r.warnings.length ? '' : 'ok');
 };
 $('#btnSetImport').onclick = async () => { const r = await james.maplib.importSet(); if (!r || r.cancelled) return; if (r.ok === false) { log(r.error, 'err'); return; } M.lib.sets.push(r.set); M.setIdx = M.lib.sets.length - 1; M.cur = 0; fillSetList(); fillDefList(); renderMap(); saveLib(); log(`นำเข้าชุด "${r.set.name}" (${r.set.tables.length} ตาราง)`, 'ok'); };
