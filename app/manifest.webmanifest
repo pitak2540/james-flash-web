@@ -1,7 +1,7 @@
 {
-  "name": "JAMES Flash",
-  "short_name": "JAMES",
-  "description": "Honda ECU K-line reader / flasher — FTDI over USB OTG (Powered by James)",
+  "name": "James Tuner 2",
+  "short_name": "James Tuner",
+  "description": "Honda ECU จูน/แฟลช/อิมโม — FTDI over USB OTG + ELM327 BLE (Powered by James)",
   "lang": "th",
   "dir": "ltr",
   "start_url": "./index.html",
