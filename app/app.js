@@ -276,7 +276,7 @@ function hexDump(a, b) {  // a = bytes to show, b = other side for diff highligh
 }
 function renderEep() {
   $('#eepHexEcu').innerHTML = hexDump(S.eepEcu, S.eepFile); $('#eepHexFile').innerHTML = hexDump(S.eepFile, S.eepEcu);
-  if (S.eepEcu && S.eepFile) { let n = 0; for (let i = 0; i < 512; i++) if (S.eepEcu[i] !== S.eepFile[i]) n++; $('#eepDiffCount').textContent = `— ต่างจากใน ECU ${n} ไบต์`; } else $('#eepDiffCount').textContent = '';
+  if (S.eepEcu && S.eepFile) { const m = Math.min(S.eepEcu.length, S.eepFile.length); let n = 0; for (let i = 0; i < m; i++) if (S.eepEcu[i] !== S.eepFile[i]) n++; const extra = S.eepEcu.length !== S.eepFile.length ? ` (เทียบ ${m} ไบต์แรก · ขนาดไฟล์ต่างกัน)` : ''; $('#eepDiffCount').textContent = `— ต่างจากใน ECU ${n} ไบต์${extra}`; } else $('#eepDiffCount').textContent = '';
   $('#btnEepSave').disabled = !S.eepEcu; secBtns();
 }
 $('#btnEepRead').onclick = async () => {
@@ -285,10 +285,12 @@ $('#btnEepRead').onclick = async () => {
   if (!r.ok) { log('✘ ' + r.error, 'err'); $('#eepSummary').textContent = '✘ ' + r.error; return; }
   S.eepEcu = r.eeprom; renderEep(); $('#eepSummary').textContent = `✔ อ่านครบ 512 ไบต์${r.mismatches ? ` (ตรวจซ้ำพบต่าง ${r.mismatches} word → ใช้ค่า 2 ใน 3)` : ' ตรวจซ้ำตรงกัน'} · สำรองที่ ${r.backup}`; log('EEPROM backup: ' + r.backup, 'ok');
 };
-$('#btnEepOpen').onclick = async () => { const f = await james.sec.openEeprom(); if (!f) return; if (f.bytes.length !== 512) { alert(`ไฟล์ต้องมีขนาด 512 ไบต์พอดี (ไฟล์นี้ ${f.bytes.length})`); return; } S.eepFile = f.bytes; S.eepFileName = f.name; $('#eepFileName').textContent = f.name; renderEep(); };
+$('#btnEepOpen').onclick = async () => { const f = await james.sec.openEeprom(); if (!f) return; S.eepFile = f.bytes; S.eepFileName = f.name; $('#eepFileName').textContent = `${f.name} (${f.bytes.length} ไบต์)`; renderEep(); if (S.eepEcu && f.bytes.length !== S.eepEcu.length) log(`เปิดไฟล์ขนาด ${f.bytes.length} ไบต์ (กล่องอ่านได้ ${S.eepEcu.length} ไบต์) — เปิดดู/เทียบได้ แต่ถ้าจะเขียนกลับ ขนาดต้องตรงกับกล่อง`, ''); };
 $('#btnEepSave').onclick = () => james.saveBin(S.eepEcu, `EEPROM_${($('#secEcm').textContent || '').replace('ECM ID ', '') || 'ECU'}.bin`);
 $('#btnEepWrite').onclick = async () => {
   if (!S.eepFile) return;
+  if (S.eepEcu && S.eepFile.length !== S.eepEcu.length) { alert(`เขียนกลับไม่ได้: ไฟล์ ${S.eepFile.length} ไบต์ ไม่เท่ากับ EEPROM ของกล่อง ${S.eepEcu.length} ไบต์\nเปิดเพื่อดู/เทียบได้ แต่ตอนเขียนต้องขนาดตรงกัน`); return; }
+  if (!S.eepEcu && S.eepFile.length !== 512) { if (!confirm(`ยังไม่ได้อ่าน EEPROM จากกล่อง และไฟล์มีขนาด ${S.eepFile.length} ไบต์ (ไม่ใช่ 512)\nยืนยันจะเขียนไฟล์นี้ลง EEPROM จริงหรือไม่?`)) return; }
   if (!confirm(`เขียน "${S.eepFileName}" ทับ EEPROM ของ ECU ${($('#secEcm').textContent || '').replace('ECM ID ', '')}?\nโปรแกรมจะสำรองของเดิมก่อน และอ่านกลับตรวจสอบหลังเขียน\nห้ามปิดกุญแจ/ถอดสายระหว่างทำ`)) return;
   $('#btnEepWrite').disabled = true; $('#eepBar').style.width = '0%';
   const r = await james.sec.writeEeprom(S.eepFile); secBtns();
