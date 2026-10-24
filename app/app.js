@@ -596,10 +596,37 @@ function skUi() {
   $('#btnSkDecode').disabled = !(has && un); $('#btnSkBuildVirgin').disabled = !(has && un); $('#btnSkBuildClone').disabled = !(has && SK2.donor && un);
   const p = SK2.profiles.find((x) => x.id === $('#skProfile').value);
   const b = $('#skProfBadge'); b.textContent = p ? (p.tested ? 'profile พร้อม' : 'profile ร่าง') : '—'; b.className = 'badge ' + (p ? (p.tested ? 'ok' : 'warn') : '');
+  skImmoRender();
 }
+const hx2 = (v) => v.toString(16).toUpperCase().padStart(2, '0');
+function skImmoRender() {
+  const p = SK2.profiles.find((x) => x.id === $('#skProfile').value); const im = p && p.immo;
+  const panel = $('#skImmoPanel'); if (!panel) return;
+  if (!im) { panel.style.display = 'none'; $('#btnImmoOff').disabled = $('#btnImmoVirgin').disabled = true; return; }
+  panel.style.display = ''; const un = canUse('smartkey'); let txt = '', ready = false;
+  if (!SK2.bin) txt = 'เปิดไฟล์ ROM ของรุ่นนี้ก่อน';
+  else if (p.romSize && SK2.bin.length !== p.romSize) txt = `ไฟล์ ${SK2.bin.length} ไบต์ ไม่ตรงรุ่น (ต้อง ${p.romSize}) — เปิด ROM ให้ถูกรุ่น`;
+  else if (im.offset >= SK2.bin.length) txt = 'ตำแหน่งอิมโมเกินขอบไฟล์';
+  else { const v = SK2.bin[im.offset]; const st = v === im.normal ? 'ปกติ (มีกุญแจจับคู่)' : v === im.disable ? 'ปิดอิมโมอยู่' : v === im.virgin ? 'virgin (ล้างแล้ว)' : 'ไม่รู้จักค่า'; txt = `0x${im.offset.toString(16).toUpperCase()} = ${hx2(v)} · ${st}`; ready = true; }
+  $('#skImmoState').textContent = txt; $('#btnImmoOff').disabled = !(ready && un); $('#btnImmoVirgin').disabled = !(ready && un);
+}
+async function skImmo(mode) {
+  const p = SK2.profiles.find((x) => x.id === $('#skProfile').value); if (!SK2.bin || !p || !p.immo) return;
+  const label = mode === 'immo-off' ? 'ปิดอิมโม (บายพาส)' : 'ล้างรหัสกุญแจ (virgin)';
+  if (!confirm(`${label}\nรุ่น: ${p.label}\nจะแก้ไบต์ที่ 0x${p.immo.offset.toString(16).toUpperCase()} ของ "${SK2.binName}" แล้วบันทึกเป็นไฟล์ใหม่ (ไฟล์ต้นฉบับไม่ถูกแตะ)\nยืนยัน?`)) return;
+  const r = await james.sec.skBuildFile(p.id, mode, SK2.bin);
+  if (!r || r.ok === false) { $('#skImmoMsg').textContent = '✘ ' + ((r && r.error) || 'ล้มเหลว'); log((r && r.error) || 'immo ล้มเหลว', 'err'); return; }
+  const patched = r.bytes || r.eeprom;
+  const name = SK2.binName.replace(/\.(bin|rom|eep)$/i, '') + (mode === 'immo-off' ? '_immo-off' : '_virgin') + '.bin';
+  const path = await james.saveBin(patched, name);
+  const pt = r.patch ? ` (0x${r.patch.offset.toString(16).toUpperCase()}: ${hx2(r.patch.before)}→${hx2(r.patch.after)}${r.patch.changed ? '' : ' ไม่เปลี่ยน'})` : '';
+  if (path) { $('#skImmoMsg').innerHTML = `✔ บันทึก <b>${name}</b> แล้ว${pt} — เอาไปเขียนที่หน้า ECU / Flash`; log('สร้างไฟล์ ' + mode + ': ' + path, 'ok'); }
+}
+$('#btnImmoOff').onclick = () => skImmo('immo-off');
+$('#btnImmoVirgin').onclick = () => skImmo('immo-virgin');
 skLoadProfiles();
 $('#skProfile').onchange = skUi;
-$('#btnSkOpen').onclick = async () => { const r = await james.openBin(); if (!r) return; SK2.bin = r.bytes; SK2.binName = r.name; $('#skFileName').textContent = `${r.name} (${r.bytes.length} ไบต์)`; $('#skDecoded').style.display = 'none'; skUi(); };
+$('#btnSkOpen').onclick = async () => { const r = await james.openBin(); if (!r) return; SK2.bin = r.bytes; SK2.binName = r.name; $('#skFileName').textContent = `${r.name} (${r.bytes.length} ไบต์)`; $('#skDecoded').style.display = 'none'; const m = SK2.profiles.find((pp) => pp.immo && pp.romSize === r.bytes.length); if (m) $('#skProfile').value = m.id; skUi(); };
 $('#btnSkDonor').onclick = async () => { const r = await james.openBin(); if (!r) return; SK2.donor = r.bytes; SK2.donorName = r.name; $('#skDonorName').textContent = `${r.name} (${r.bytes.length} ไบต์)`; skUi(); };
 $('#btnSkDecode').onclick = async () => {
   const r = await james.sec.skDecode($('#skProfile').value, SK2.bin); if (!r.ok) { log(r.error, 'err'); return; }
@@ -608,6 +635,7 @@ $('#btnSkDecode').onclick = async () => {
   if (d.keyCount !== null) rows.push(['จำนวนคีย์/ตัวนับ', d.keyCount]);
   for (const [id, f] of Object.entries(d.fields)) if (id !== 'keyId' && id !== 'keyCount') rows.push([f.label, f.show === 'dec' ? f.num : f.hex]);
   if (d.region) rows.push(['โซนจับคู่ (0x' + d.region.offset.toString(16).toUpperCase() + ', ' + d.region.len + ' ไบต์)', (d.virgin ? 'VIRGIN (ยังไม่จับคู่)' : 'มีการจับคู่') + ' · ' + d.region.hex.slice(0, 48) + (d.region.hex.length > 48 ? '…' : '')]);
+  if (d.immo && d.immo.ok) rows.push(['อิมโม (0x' + d.immo.offset.toString(16).toUpperCase() + ')', d.immo.hex + ' · ' + d.immo.label]);
   if (!rows.length) rows.push(['—', 'profile ยังไม่ได้ระบุ field/region — ใช้ “วิเคราะห์หลายไฟล์” เพื่อหาตำแหน่งก่อน']);
   $('#skDecoded').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join(''); $('#skDecoded').style.display = '';
   log(`ถอดรหัส ${SK2.binName}: Key ID ${d.keyId ?? '-'} · ${d.virgin === true ? 'virgin' : d.virgin === false ? 'จับคู่แล้ว' : '-'}`, 'ok');
