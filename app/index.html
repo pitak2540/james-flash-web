@@ -204,6 +204,12 @@
     </div>
     <div id="skRenewMsg" class="muted small"></div>
   </div>
+  <div class="card">
+    <h3>5. คลัง ROM (ไฟล์ในเครื่อง) <span id="romLibCount" class="badge">—</span></h3>
+    <p class="muted small">ไฟล์ ROM ของร้าน (สต็อก/จูน) — เดสก์ท็อปอ่านจาก <code id="romLibDir">Documents\JAMES-Flash\rom-library</code> อัตโนมัติ · เว็บกดนำเข้าเอง · <b>ไฟล์อยู่ในเครื่องเท่านั้น ไม่ถูกอัปโหลดที่ไหน</b></p>
+    <div class="row small"><input id="romLibSearch" size="26" placeholder="ค้นหา: รุ่น / รหัส / โน้ตจูน"><button id="btnRomLibImport" class="ghost" style="display:none">นำเข้าไฟล์…</button><button id="btnRomLibRefresh" class="ghost">รีเฟรช</button></div>
+    <div id="romLibList" class="romlib"></div>
+  </div>
   <div class="card"><h3>สถานะ / Log</h3><div id="log2" class="log"></div></div>
 </section>
 

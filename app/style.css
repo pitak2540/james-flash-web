@@ -118,3 +118,9 @@ img,canvas,table,pre{max-width:100%}
   .gauges{grid-template-columns:1fr 1fr}
   .kv{grid-template-columns:auto 1fr}
 }
+.romlib{max-height:340px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:8px}
+.romrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line)}
+.romrow:last-child{border-bottom:0}
+.romrow:nth-child(even){background:rgba(127,127,127,.06)}
+.rominfo{min-width:0;flex:1}
+.romacts{display:flex;gap:4px;flex-shrink:0}

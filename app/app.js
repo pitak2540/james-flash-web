@@ -247,6 +247,39 @@ if ($('#ecuModelPick')) $('#ecuModelPick').onchange = () => {
 };
 loadEcuModels();
 
+// ---- ROM library (local files; browse the shop's own stock/tuned ROMs) ----
+let romLib = { dir: '', items: [] };
+async function loadRomLib() {
+  if (!james.romlib) return;
+  try { const r = await james.romlib.list(); romLib = r || romLib; if ($('#romLibDir') && r && r.dir && r.dir !== 'imported') $('#romLibDir').textContent = r.dir; renderRomLib(); } catch {}
+}
+function renderRomLib() {
+  const el = $('#romLibList'); if (!el) return;
+  const q = ($('#romLibSearch').value || '').toLowerCase().trim();
+  $('#romLibCount').textContent = romLib.items.length ? `${romLib.items.length} ไฟล์` : '—';
+  if (!romLib.items.length) { el.innerHTML = `<div class="muted small">ยังไม่มีไฟล์ — ${james.romlib && james.romlib.import ? 'กด “นำเข้าไฟล์…”' : 'วางไฟล์ .bin ไว้ในโฟลเดอร์ด้านบนแล้วกดรีเฟรช'}</div>`; return; }
+  const items = romLib.items.filter((it) => !q || (`${it.vehicle} ${it.code} ${it.label} ${it.name}`).toLowerCase().includes(q));
+  el.innerHTML = items.slice(0, 300).map((it) => {
+    const idx = romLib.items.indexOf(it);
+    const w = it.warn && it.warn.length ? ` <span class="warn">⚠ ${it.warn.join(' · ')}</span>` : '';
+    return `<div class="romrow"><div class="rominfo"><b>${it.vehicle || it.code || '?'}</b> <span class="muted">${it.code || ''} · ${it.sizeKb}KB · ${it.brand || it.family}${it.tuned ? ' · <span class="ok">จูน</span>' : ''}</span>${w}<br><span class="muted small">${(it.label || it.name).slice(0, 64)}</span></div><div class="romacts"><button data-i="${idx}" class="romA ghost mini" data-act="flash">→ Flash</button><button data-i="${idx}" class="romA ghost mini" data-act="map">→ Map</button><button data-i="${idx}" class="romA ghost mini" data-act="ref">อ้างอิง</button></div></div>`;
+  }).join('');
+  el.querySelectorAll('.romA').forEach((b) => (b.onclick = () => romLibAction(+b.dataset.i, b.dataset.act)));
+}
+async function romLibAction(i, what) {
+  const it = romLib.items[i]; if (!it) return;
+  let bytes; try { bytes = await james.romlib.read(romLib.dir, it.name); } catch (e) { return log('อ่านไฟล์ไม่ได้: ' + e.message, 'err'); }
+  if (!bytes) return log('อ่านไฟล์ไม่ได้: ' + it.name, 'err');
+  const u = new Uint8Array(bytes); const name = it.vehicle ? `${it.vehicle} (${it.code})` : it.name;
+  if (what === 'flash') { await setBin(u, name); $$('.tabs button')[0].click(); log('ส่ง ' + name + ' ไปหน้า Flash', 'ok'); }
+  else if (what === 'map') { loadMap(u, name); $$('.tabs button')[2].click(); log('เปิด ' + name + ' ใน Map Editor', 'ok'); }
+  else { S.ref = u; S.refName = it.name; $('#refName').textContent = `${it.name} (${u.length} ไบต์)`; $('#btnRefClear').style.display = ''; log('ใช้ ' + name + ' เป็นไฟล์อ้างอิง', 'ok'); }
+}
+if ($('#romLibSearch')) $('#romLibSearch').oninput = renderRomLib;
+if ($('#btnRomLibRefresh')) $('#btnRomLibRefresh').onclick = loadRomLib;
+if (james.romlib && james.romlib.import && $('#btnRomLibImport')) { $('#btnRomLibImport').style.display = ''; $('#btnRomLibImport').onclick = async () => { const r = await james.romlib.import(); if (r) { romLib = r; renderRomLib(); } }; }
+loadRomLib();
+
 // saved passwords
 async function loadPw(list) {
   list = list || (await james.pw.list());
