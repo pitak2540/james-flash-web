@@ -143,6 +143,8 @@
     </div>
     <div class="card">
       <h3>2. อ่าน ROM</h3>
+      <div class="row small"><label>รุ่น (ฐานข้อมูล <span id="ecuModelCount">—</span> รุ่น)</label><input id="ecuModelPick" list="ecuModelList" size="32" placeholder="พิมพ์ค้นหา: PCX160 / K1ZF / เวฟ 110i"><datalist id="ecuModelList"></datalist></div>
+      <div class="row small"><span id="ecuModelInfo" class="muted"></span></div>
       <div class="row"><label>ขนาด</label><select id="romSize"></select><label>ตรวจซ้ำ</label><select id="romVerify"><option value="sample">สุ่ม 1/16</option><option value="full">ทั้งหมด (ช้า ×2)</option><option value="none">ไม่ตรวจ</option></select></div>
       <div class="row small"><span id="romNote" class="muted"></span></div>
       <div class="row"><label>ไฟล์อ้างอิง (STD) — ใช้เติมส่วนที่กล่องไม่ให้อ่าน</label><button id="btnRefOpen" class="ghost">เลือกไฟล์</button><span id="refName" class="muted">ไม่ใช้</span><button id="btnRefClear" class="ghost" style="display:none">×</button></div>
@@ -180,6 +182,13 @@
       <button id="btnSkDecode" class="primary" disabled>ถอดรหัส</button>
     </div>
     <dl class="kv" id="skDecoded" style="display:none"></dl>
+    <div id="skImmoPanel" class="row small" style="display:none; margin-top:8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#171c26">
+      <b>อิมโมบิไลเซอร์ (รุ่นนี้):</b><span id="skImmoState" class="muted">—</span>
+      <span class="sep"></span>
+      <button id="btnImmoOff" class="red" disabled>ปิดอิมโม</button>
+      <button id="btnImmoVirgin" class="red" disabled>ล้างรหัสกุญแจ</button>
+    </div>
+    <div id="skImmoMsg" class="muted small"></div>
     <div class="row small" style="margin-top:8px">
       <b>หาตำแหน่งรหัส (ออฟเซ็ต):</b>
       <button id="btnSkAnalyze" class="ghost">วิเคราะห์หลายไฟล์…</button>

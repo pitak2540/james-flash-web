@@ -206,7 +206,7 @@ const secBtns = () => {
   const b = $('#secState'); b.textContent = ({ idle: 'ยังไม่เชื่อมต่อ', 'wait-off': 'รอ OFF', 'wait-on': 'รอ ON', unlocked: 'ปลดล็อกแล้ว', busy: 'กำลังทำงาน', lost: 'หลุดการเชื่อมต่อ' })[S.state] || S.state;
   b.className = 'badge ' + (S.state === 'unlocked' ? 'unlocked' : S.state === 'busy' ? 'busy' : S.state === 'lost' ? 'lost' : S.state.startsWith('wait') ? 'wait' : '');
 };
-james.onSecState((d) => { S.state = d.state; $('#secEcm').textContent = d.ecmId && d.ecmId !== '-' ? 'ECM ID ' + d.ecmId : ''; secBtns(); });
+james.onSecState((d) => { S.state = d.state; const id = d.ecmId && d.ecmId !== '-' ? d.ecmId : ''; const m = id ? findEcuModel(id) : null; $('#secEcm').textContent = id ? ('ECM ID ' + id + (m ? ` · ${m.vehicle} (${m.code}) ${m.sizeKb}KB ${m.brand}` : '')) : ''; secBtns(); });
 james.onStep((n) => { [1, 2, 3].forEach((i) => { const e = $('#s' + i); e.classList.toggle('on', i === n); e.classList.toggle('done', i < n || (n === 3 && i === 3)); }); });
 
 (async () => {
@@ -218,6 +218,34 @@ james.onStep((n) => { [1, 2, 3].forEach((i) => { const e = $('#s' + i); e.classL
 })();
 function romNote() { const L = S.layouts[$('#romSize').value]; if (L) $('#romNote').textContent = L.note + (L.tested ? '' : ' — ครั้งแรกควรเทียบกับไฟล์ที่รู้ว่าถูกต้องก่อนนำไปใช้'); }
 $('#romSize').onchange = romNote;
+
+// ---- ECU model catalog (Honda models from the licensed database, keyed by ECU-ID) ----
+const hexNorm = (s) => String(s || '').toUpperCase().replace(/[^0-9A-F]/g, '');
+function findEcuModel(ecmId) {
+  const id = hexNorm(ecmId); if (!id || !S.ecuModels) return null;
+  let m = S.ecuModels.find((x) => hexNorm(x.ecuId) === id);
+  if (!m && id.length >= 8) { const p = id.slice(0, 8); m = S.ecuModels.find((x) => hexNorm(x.ecuId).startsWith(p)); }
+  return m || null;
+}
+function layoutKeyForBytes(bytes) { for (const [k, L] of Object.entries(S.layouts || {})) if (L.bytes === bytes) return k; return null; }
+async function loadEcuModels() {
+  if (!james.ecu || !james.ecu.models) return;
+  S.ecuModels = await james.ecu.models(); S.ecuByVal = {};
+  const dl = $('#ecuModelList'); if (dl) dl.innerHTML = '';
+  for (const m of S.ecuModels) {
+    const val = `${m.code} — ${m.vehicle} (${m.sizeKb}KB ${m.brand})`;
+    S.ecuByVal[val] = m;
+    if (dl) { const o = document.createElement('option'); o.value = val; dl.appendChild(o); }
+  }
+  const c = $('#ecuModelCount'); if (c) c.textContent = String(S.ecuModels.length);
+}
+if ($('#ecuModelPick')) $('#ecuModelPick').onchange = () => {
+  const m = (S.ecuByVal || {})[$('#ecuModelPick').value]; const info = $('#ecuModelInfo');
+  if (!m) { if (info) info.textContent = ''; return; }
+  const k = layoutKeyForBytes(m.romBytes); if (k) { $('#romSize').value = k; romNote(); }
+  if (info) info.textContent = `${m.vehicle} · ${m.code} · ${m.sizeKb}KB · ${m.brand} · ECU-ID ${m.ecuId} · แฟลช start ${m.startOffset}/cs ${m.checksumOffset}` + (k ? ` · ตั้งขนาด ${k.toUpperCase()} ให้แล้ว` : ` · (ยังไม่มี layout ${m.sizeKb}KB สำหรับอ่านตรงจากกล่อง)`);
+};
+loadEcuModels();
 
 // saved passwords
 async function loadPw(list) {
