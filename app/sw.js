@@ -1,6 +1,6 @@
 // JAMES Flash service worker — app-shell cache so the PWA installs and runs offline
-const CACHE = 'jamesflash-v1_3-jt2';
-const ASSETS = ['./', './index.html', './style.css', './mathexpr.js', './charts.js', './app.js', './dist/james-web.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'];
+const CACHE = 'jamesflash-v1_4-logo';
+const ASSETS = ['./', './index.html', './style.css', './mathexpr.js', './charts.js', './app.js', './logo.png', './dist/james-web.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'];
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).catch(() => {})); });
 self.addEventListener('activate', (e) => { e.waitUntil((async () => { for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k); await self.clients.claim(); })()); });
 self.addEventListener('fetch', (e) => {
